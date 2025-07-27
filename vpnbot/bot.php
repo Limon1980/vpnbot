@@ -196,7 +196,7 @@ if ($text && $chat_id) {
 			// Подготавливаем массив для sendMediaGroup
 			$media = [];
 			$photoDir = '/var/www/html/vpnbot/iphone/';
-			$photoBaseUrl = 'https://work1990.ru/vpnbot/iphone/'; // Замените на ваш домен
+			$photoBaseUrl = 'https://ваш_домен/vpnbot/iphone/'; // Замените на ваш домен
 			
 			for ($i = 1; $i <= 5; $i++) {
 				$photoPath = $photoDir . "$i.jpg";
@@ -252,7 +252,7 @@ if ($text && $chat_id) {
 			]);
 			
 			$photoDir = '/var/www/html/vpnbot/windows/';
-			$photoBaseUrl = 'https://work1990.ru/vpnbot/windows/';
+			$photoBaseUrl = 'https://ваш_домен/vpnbot/windows/';
 			
 			$captions = [
 				1 => '1) Скачайте и установите приложение <a href="https://openvpn.net/community/">OpenVPN GUI</a> если не открывается, используйте <a href="https://www.softportal.com/software-47725-openvpn.html">Ссылку 2:</a>/n Скачать клиент в боте по команде /clientwindows32 или /clientwindows64',
@@ -299,7 +299,7 @@ if ($text && $chat_id) {
 			
 			$media = [];
 			$photoDir = '/var/www/html/vpnbot/android/';
-			$photoBaseUrl = 'https://work1990.ru/vpnbot/android/'; // Замените на ваш домен
+			$photoBaseUrl = 'https://ваш_домен/vpnbot/android/'; // Замените на ваш домен
 			
 			for ($i = 1; $i <= 9; $i++) {
 				$photoPath = $photoDir . "$i.jpg";
