@@ -1,0 +1,17 @@
+#!/usr/bin/expect -f
+
+set clientname [lindex $argv 0]
+set timeout -1
+
+spawn sudo /var/www/html/openvpn-install.sh
+
+expect "Select an option*" { send "1\r" }
+sleep 1
+
+expect "Client name:*" { send "VpnOpenBot$clientname\r" }
+sleep 1
+
+expect "Select an option*" { send "\r" }
+sleep 1
+
+expect eof
