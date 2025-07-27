@@ -139,14 +139,31 @@ if (php_sapi_name() !== 'cli') {
         <title>Статистика трафика VPN Bot</title>
         <meta charset="utf-8">
         <style>
-            body { font-family: Arial, sans-serif; margin: 20px; }
-            table { border-collapse: collapse; width: 100%; }
+            body { font-family: Arial, sans-serif; margin: 20px; background-color: #f8f9fa; }
+            table { border-collapse: collapse; width: 100%; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
             th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
             th { background-color: #f2f2f2; }
             .active { background-color: #e8f5e8; }
             .nav { margin-bottom: 20px; }
-            .nav a { margin-right: 15px; text-decoration: none; padding: 5px 10px; background: #007cba; color: white; }
+            .nav a { margin-right: 15px; text-decoration: none; padding: 5px 10px; background: #007cba; color: white; border-radius: 3px; }
             .nav a:hover { background: #005a87; }
+            
+            /* Стили для мониторинга */
+            .monitor-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 20px; }
+            .monitor-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+            .monitor-card h3 { margin-top: 0; color: #333; border-bottom: 2px solid #007cba; padding-bottom: 10px; }
+            .progress-bar { width: 100%; height: 20px; background-color: #e9ecef; border-radius: 10px; overflow: hidden; margin: 10px 0; }
+            .progress-fill { height: 100%; transition: width 0.3s ease, background-color 0.3s ease; }
+            .metric { display: flex; justify-content: space-between; align-items: center; margin: 10px 0; }
+            .metric-label { font-weight: bold; }
+            .metric-value { color: #666; }
+            .status-indicator { width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+            .status-up { background-color: #28a745; }
+            .status-down { background-color: #dc3545; }
+            .last-update { text-align: center; color: #6c757d; margin-top: 20px; font-size: 14px; }
+            .refresh-btn { background: #28a745; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
+            .refresh-btn:hover { background: #218838; }
+            .loading { opacity: 0.6; }
         </style>
     </head>
     <body>
@@ -157,6 +174,7 @@ if (php_sapi_name() !== 'cli') {
             <a href="?action=active">Активные сессии</a>
             <a href="?action=top">Топ пользователи</a>
             <a href="?action=all">Все пользователи</a>
+            <a href="?action=monitor">Мониторинг системы</a>
         </div>
         
         <?php
@@ -224,6 +242,207 @@ if (php_sapi_name() !== 'cli') {
                     }
                     echo "</table>";
                 }
+                break;
+                
+            case 'monitor':
+                require_once __DIR__ . '/system_monitor.php';
+                echo "<h2>Мониторинг системы</h2>";
+                echo "<button class='refresh-btn' onclick='refreshMonitorData()'>Обновить данные</button>";
+                
+                echo "<div id='monitor-container' class='monitor-grid'>";
+                echo "<div class='monitor-card'>";
+                echo "<h3>🖥️ Процессор</h3>";
+                echo "<div id='cpu-usage'>Загрузка...</div>";
+                echo "</div>";
+                
+                echo "<div class='monitor-card'>";
+                echo "<h3>💾 Память</h3>";
+                echo "<div id='memory-usage'>Загрузка...</div>";
+                echo "</div>";
+                
+                echo "<div class='monitor-card'>";
+                echo "<h3>💿 Диск</h3>";
+                echo "<div id='disk-usage'>Загрузка...</div>";
+                echo "</div>";
+                
+                echo "<div class='monitor-card'>";
+                echo "<h3>📊 Нагрузка системы</h3>";
+                echo "<div id='load-average'>Загрузка...</div>";
+                echo "</div>";
+                
+                echo "<div class='monitor-card'>";
+                echo "<h3>⏱️ Время работы</h3>";
+                echo "<div id='uptime'>Загрузка...</div>";
+                echo "</div>";
+                
+                echo "<div class='monitor-card'>";
+                echo "<h3>🔄 Процессы</h3>";
+                echo "<div id='processes'>Загрузка...</div>";
+                echo "</div>";
+                echo "</div>";
+                
+                echo "<div class='monitor-card'>";
+                echo "<h3>🌐 Сетевые интерфейсы</h3>";
+                echo "<div id='network-interfaces'>Загрузка...</div>";
+                echo "</div>";
+                
+                echo "<div class='last-update' id='last-update'>Последнее обновление: загрузка...</div>";
+                
+                // JavaScript для автообновления
+                echo "<script>
+                let monitorInterval;
+                
+                function loadMonitorData() {
+                    document.getElementById('monitor-container').classList.add('loading');
+                    
+                    fetch('monitor_api.php')
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                updateMonitorDisplay(data.data);
+                                document.getElementById('last-update').textContent = 'Последнее обновление: ' + data.last_update;
+                            } else {
+                                console.error('Error:', data.error);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Fetch error:', error);
+                        })
+                        .finally(() => {
+                            document.getElementById('monitor-container').classList.remove('loading');
+                        });
+                }
+                
+                function updateMonitorDisplay(data) {
+                    // CPU
+                    document.getElementById('cpu-usage').innerHTML = `
+                        <div class='metric'>
+                            <span class='metric-label'>Использование:</span>
+                            <span class='metric-value'>\${data.cpu}%</span>
+                        </div>
+                        <div class='progress-bar'>
+                            <div class='progress-fill' style='width: \${data.cpu}%; background-color: \${data.colors.cpu};'></div>
+                        </div>
+                    `;
+                    
+                    // Memory
+                    if (data.memory) {
+                        document.getElementById('memory-usage').innerHTML = `
+                            <div class='metric'>
+                                <span class='metric-label'>Использовано:</span>
+                                <span class='metric-value'>\${data.memory.used_formatted} / \${data.memory.total_formatted}</span>
+                            </div>
+                            <div class='progress-bar'>
+                                <div class='progress-fill' style='width: \${data.memory.percentage}%; background-color: \${data.colors.memory};'></div>
+                            </div>
+                            <div class='metric'>
+                                <span class='metric-label'>Процент:</span>
+                                <span class='metric-value'>\${data.memory.percentage}%</span>
+                            </div>
+                        `;
+                    }
+                    
+                    // Disk
+                    if (data.disk) {
+                        document.getElementById('disk-usage').innerHTML = `
+                            <div class='metric'>
+                                <span class='metric-label'>Использовано:</span>
+                                <span class='metric-value'>\${data.disk.used_formatted} / \${data.disk.total_formatted}</span>
+                            </div>
+                            <div class='progress-bar'>
+                                <div class='progress-fill' style='width: \${data.disk.percentage}%; background-color: \${data.colors.disk};'></div>
+                            </div>
+                            <div class='metric'>
+                                <span class='metric-label'>Процент:</span>
+                                <span class='metric-value'>\${data.disk.percentage}%</span>
+                            </div>
+                        `;
+                    }
+                    
+                    // Load Average
+                    if (data.load_average) {
+                        document.getElementById('load-average').innerHTML = `
+                            <div class='metric'>
+                                <span class='metric-label'>1 минута:</span>
+                                <span class='metric-value'>\${data.load_average['1min']}</span>
+                            </div>
+                            <div class='metric'>
+                                <span class='metric-label'>5 минут:</span>
+                                <span class='metric-value'>\${data.load_average['5min']}</span>
+                            </div>
+                            <div class='metric'>
+                                <span class='metric-label'>15 минут:</span>
+                                <span class='metric-value'>\${data.load_average['15min']}</span>
+                            </div>
+                        `;
+                    }
+                    
+                    // Uptime
+                    if (data.uptime) {
+                        document.getElementById('uptime').innerHTML = `
+                            <div class='metric-value'>\${data.uptime.formatted}</div>
+                        `;
+                    }
+                    
+                    // Processes
+                    if (data.processes) {
+                        document.getElementById('processes').innerHTML = `
+                            <div class='metric'>
+                                <span class='metric-label'>Запущено:</span>
+                                <span class='metric-value'>\${data.processes.running}</span>
+                            </div>
+                            <div class='metric'>
+                                <span class='metric-label'>Всего:</span>
+                                <span class='metric-value'>\${data.processes.total}</span>
+                            </div>
+                        `;
+                    }
+                    
+                    // Network Interfaces
+                    if (data.network) {
+                        let networkHtml = '<table><tr><th>Интерфейс</th><th>Статус</th><th>Скорость</th><th>RX</th><th>TX</th><th>Ошибки</th></tr>';
+                        for (const [iface, stats] of Object.entries(data.network)) {
+                            const statusClass = stats.is_up ? 'status-up' : 'status-down';
+                            const statusText = stats.is_up ? 'UP' : 'DOWN';
+                            networkHtml += `
+                                <tr>
+                                    <td><strong>\${iface}</strong></td>
+                                    <td><span class='status-indicator \${statusClass}'></span>\${statusText}</td>
+                                    <td>\${stats.speed_formatted}</td>
+                                    <td>\${stats.rx_bytes_formatted}</td>
+                                    <td>\${stats.tx_bytes_formatted}</td>
+                                    <td>RX: \${stats.rx_errors}, TX: \${stats.tx_errors}</td>
+                                </tr>
+                            `;
+                        }
+                        networkHtml += '</table>';
+                        document.getElementById('network-interfaces').innerHTML = networkHtml;
+                    }
+                }
+                
+                function refreshMonitorData() {
+                    loadMonitorData();
+                }
+                
+                function startMonitorInterval() {
+                    monitorInterval = setInterval(loadMonitorData, 60000); // Обновление каждые 60 секунд
+                }
+                
+                function stopMonitorInterval() {
+                    if (monitorInterval) {
+                        clearInterval(monitorInterval);
+                    }
+                }
+                
+                // Загружаем данные при загрузке страницы
+                document.addEventListener('DOMContentLoaded', function() {
+                    loadMonitorData();
+                    startMonitorInterval();
+                });
+                
+                // Останавливаем интервал при уходе со страницы
+                window.addEventListener('beforeunload', stopMonitorInterval);
+                </script>";
                 break;
                 
             default: // overview
