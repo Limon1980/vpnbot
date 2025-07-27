@@ -145,16 +145,60 @@ class TrafficCollector {
      */
     private function updateActiveTraffic($clientsData, $currentTraffic) {
         foreach ($clientsData as $chatId => $clientData) {
-            // Проверяем, есть ли уже активная сессия в БД
-            $isNewSession = !isset($currentTraffic[$chatId]) || 
-                           empty($currentTraffic[$chatId]['session_start']) ||
-                           ($currentTraffic[$chatId]['recive_byte'] == 0 && $currentTraffic[$chatId]['sent_byte'] == 0) ||
-                           // Также проверяем, если время подключения в логе OpenVPN новее, чем в БД (переподключение)
-                           (!empty($currentTraffic[$chatId]['session_start']) && 
-                            strtotime($clientData['connected_since']) > strtotime($currentTraffic[$chatId]['session_start']));
+            $dbRecord = $currentTraffic[$chatId] ?? null;
             
-            if ($isNewSession) {
-                // Новая сессия - устанавливаем время из лога OpenVPN
+            // Определяем, нужно ли обновить время сессии
+            $needUpdateSessionTime = false;
+            $logMessage = "";
+            
+            if (!$dbRecord) {
+                // Пользователь не найден в БД - пропускаем
+                $this->log("Пользователь chat_id: $chatId найден в OpenVPN, но отсутствует в БД");
+                continue;
+            }
+            
+            if (empty($dbRecord['session_start'])) {
+                // В БД нет времени начала сессии - устанавливаем из лога
+                $needUpdateSessionTime = true;
+                $logMessage = "Устанавливаем время начала сессии для chat_id: $chatId";
+            } else {
+                // Проверяем, отличается ли время в логе от времени в БД
+                $dbTime = strtotime($dbRecord['session_start']);
+                $logTime = strtotime($clientData['connected_since']);
+                
+                if ($logTime != $dbTime) {
+                    // Времена отличаются
+                    if ($logTime > $dbTime) {
+                        // Время в логе новее - это переподключение
+                        $needUpdateSessionTime = true;
+                        $logMessage = "Переподключение для chat_id: $chatId. Старое время: " . $dbRecord['session_start'] . ", новое: " . $clientData['connected_since'];
+                        
+                        // Сохраняем трафик предыдущей сессии
+                        if ($dbRecord['recive_byte'] > 0 || $dbRecord['sent_byte'] > 0) {
+                            $addTrafficSql = "UPDATE vpnusers 
+                                            SET full_recive_byte = full_recive_byte + :old_recive,
+                                                full_sent_byte = full_sent_byte + :old_sent
+                                            WHERE chat_id = :chat_id";
+                            
+                            $this->dbh->query($addTrafficSql, [
+                                ':old_recive' => $dbRecord['recive_byte'],
+                                ':old_sent' => $dbRecord['sent_byte'],
+                                ':chat_id' => $chatId
+                            ]);
+                        }
+                    } else {
+                        // Время в логе старше времени в БД - обновляем только трафик
+                        $needUpdateSessionTime = false;
+                        $logMessage = "Время в БД новее лога для chat_id: $chatId, обновляем только трафик";
+                    }
+                } else {
+                    // Времена совпадают - обычное обновление трафика
+                    $needUpdateSessionTime = false;
+                }
+            }
+            
+            if ($needUpdateSessionTime) {
+                // Обновляем трафик и время сессии
                 $sql = "UPDATE vpnusers 
                         SET recive_byte = :recive_byte,
                             sent_byte = :sent_byte,
@@ -168,31 +212,11 @@ class TrafficCollector {
                     ':chat_id' => $chatId
                 ];
                 
-                                 // Проверяем, это совсем новая сессия или переподключение
-                 $isReconnection = isset($currentTraffic[$chatId]) && 
-                                 !empty($currentTraffic[$chatId]['session_start']) &&
-                                 strtotime($clientData['connected_since']) > strtotime($currentTraffic[$chatId]['session_start']);
-                 
-                 if ($isReconnection) {
-                     // При переподключении сначала сохраняем трафик предыдущей сессии
-                     $this->log("Переподключение для chat_id: $chatId. Старая сессия: " . $currentTraffic[$chatId]['session_start'] . ", новая: " . $clientData['connected_since']);
-                     
-                     // Добавляем трафик предыдущей сессии к общему счетчику
-                     $addTrafficSql = "UPDATE vpnusers 
-                                      SET full_recive_byte = full_recive_byte + :old_recive,
-                                          full_sent_byte = full_sent_byte + :old_sent
-                                      WHERE chat_id = :chat_id";
-                     
-                     $this->dbh->query($addTrafficSql, [
-                         ':old_recive' => $currentTraffic[$chatId]['recive_byte'],
-                         ':old_sent' => $currentTraffic[$chatId]['sent_byte'],
-                         ':chat_id' => $chatId
-                     ]);
-                 } else {
-                     $this->log("Новая сессия для chat_id: $chatId, начало: " . $clientData['connected_since']);
-                 }
+                if ($logMessage) {
+                    $this->log($logMessage);
+                }
             } else {
-                // Продолжающаяся сессия - обновляем только трафик
+                // Обновляем только трафик
                 $sql = "UPDATE vpnusers 
                         SET recive_byte = :recive_byte,
                             sent_byte = :sent_byte
@@ -203,6 +227,10 @@ class TrafficCollector {
                     ':sent_byte' => $clientData['bytes_sent'],
                     ':chat_id' => $chatId
                 ];
+                
+                if ($logMessage) {
+                    $this->log($logMessage);
+                }
             }
             
             $this->dbh->query($sql, $params);

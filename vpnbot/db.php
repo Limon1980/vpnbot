@@ -52,8 +52,16 @@ class Db {
         $sth->execute($params);  // Используем параметризованные запросы
         return $sth->fetchAll(PDO::FETCH_ASSOC);
     } catch (PDOException $e) {
-        $this->reconnect();  // Переподключение при ошибке
-        throw $e;  // Проброс исключения для обработки выше
+        try {
+            $this->reconnect();  // Переподключение при ошибке
+            // Повторяем запрос после переподключения
+            $sth = $this->dbh->prepare($sql);
+            $sth->execute($params);
+            return $sth->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $reconnectException) {
+            // Если и после переподключения не удалось - выбрасываем исключение
+            throw $reconnectException;
+        }
     }
 	}
 
