@@ -355,11 +355,32 @@ if ($text && $chat_id) {
 				
 				$textCabinet = "👤 Личный кабинет:\n"
 							 . "🔑 Ключ: $ovpnName\n"
-							 . "📆 Дней осталось: $daysLeft";
+							 . "📆 Дней осталось: $daysLeft\n";
+				
+				// Получаем информацию о трафике
+				$trafficInfo = getUserTrafficInfo($chat_id);
+				if ($trafficInfo) {
+					$textCabinet .= "\n📊 Статистика трафика:\n";
+					
+					if ($trafficInfo['is_active']) {
+						$textCabinet .= "🟢 Текущая сессия:\n";
+						$textCabinet .= "  📥 Загружено: " . formatBytes($trafficInfo['current_received']) . "\n";
+						$textCabinet .= "  📤 Отправлено: " . formatBytes($trafficInfo['current_sent']) . "\n";
+						$textCabinet .= "  📊 Всего за сессию: " . formatBytes($trafficInfo['current_total']) . "\n";
+						$textCabinet .= "  🕐 Начало сессии: " . $trafficInfo['session_start'] . "\n";
+					} else {
+						$textCabinet .= "⚫ Сессия не активна\n";
+					}
+					
+					$textCabinet .= "\n📈 Общая статистика:\n";
+					$textCabinet .= "  📥 Всего загружено: " . formatBytes($trafficInfo['total_received']) . "\n";
+					$textCabinet .= "  📤 Всего отправлено: " . formatBytes($trafficInfo['total_sent']) . "\n";
+					$textCabinet .= "  📊 Общий трафик: " . formatBytes($trafficInfo['total_traffic']);
+				}
 				
 				// Добавляем сообщение о блокировке, если tarif = 'block'
 				if ($tarif === 'block') {
-					$textCabinet .= "\n🚫 Доступ закрыт: Ваш тариф заблокирован. Пожалуйста, оплатите подписку для восстановления доступа.";
+					$textCabinet .= "\n\n🚫 Доступ закрыт: Ваш тариф заблокирован. Пожалуйста, оплатите подписку для восстановления доступа.";
 				}
 			} else {
 				$textCabinet = "👤 Личный кабинет:\nВы ещё не получили ключ!";
