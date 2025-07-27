@@ -196,7 +196,7 @@ if ($text && $chat_id) {
 			// Подготавливаем массив для sendMediaGroup
 			$media = [];
 			$photoDir = '/var/www/html/vpnbot/iphone/';
-			$photoBaseUrl = 'https://work1990.ru/vpnbot/iphone/'; // Замените на ваш домен
+			$photoBaseUrl = 'https://ваш_домен/vpnbot/iphone/'; // Замените на ваш домен
 			
 			for ($i = 1; $i <= 5; $i++) {
 				$photoPath = $photoDir . "$i.jpg";
@@ -252,7 +252,7 @@ if ($text && $chat_id) {
 			]);
 			
 			$photoDir = '/var/www/html/vpnbot/windows/';
-			$photoBaseUrl = 'https://work1990.ru/vpnbot/windows/';
+			$photoBaseUrl = 'https://ваш_домен/vpnbot/windows/';
 			
 			$captions = [
 				1 => '1) Скачайте и установите приложение <a href="https://openvpn.net/community/">OpenVPN GUI</a> если не открывается, используйте <a href="https://www.softportal.com/software-47725-openvpn.html">Ссылку 2:</a>/n Скачать клиент в боте по команде /clientwindows32 или /clientwindows64',
@@ -299,7 +299,7 @@ if ($text && $chat_id) {
 			
 			$media = [];
 			$photoDir = '/var/www/html/vpnbot/android/';
-			$photoBaseUrl = 'https://work1990.ru/vpnbot/android/'; // Замените на ваш домен
+			$photoBaseUrl = 'https://ваш_домен/vpnbot/android/'; // Замените на ваш домен
 			
 			for ($i = 1; $i <= 9; $i++) {
 				$photoPath = $photoDir . "$i.jpg";
@@ -355,11 +355,32 @@ if ($text && $chat_id) {
 				
 				$textCabinet = "👤 Личный кабинет:\n"
 							 . "🔑 Ключ: $ovpnName\n"
-							 . "📆 Дней осталось: $daysLeft";
+							 . "📆 Дней осталось: $daysLeft\n";
+				
+				// Получаем информацию о трафике
+				$trafficInfo = getUserTrafficInfo($chat_id);
+				if ($trafficInfo) {
+					$textCabinet .= "\n📊 Статистика трафика:\n";
+					
+					if ($trafficInfo['is_active']) {
+						$textCabinet .= "🟢 Текущая сессия:\n";
+						$textCabinet .= "  📥 Загружено: " . formatBytes($trafficInfo['current_received']) . "\n";
+						$textCabinet .= "  📤 Отправлено: " . formatBytes($trafficInfo['current_sent']) . "\n";
+						$textCabinet .= "  📊 Всего за сессию: " . formatBytes($trafficInfo['current_total']) . "\n";
+						$textCabinet .= "  🕐 Начало сессии: " . $trafficInfo['session_start'] . "\n";
+					} else {
+						$textCabinet .= "⚫ Сессия не активна\n";
+					}
+					
+					$textCabinet .= "\n📈 Общая статистика:\n";
+					$textCabinet .= "  📥 Всего загружено: " . formatBytes($trafficInfo['total_received']) . "\n";
+					$textCabinet .= "  📤 Всего отправлено: " . formatBytes($trafficInfo['total_sent']) . "\n";
+					$textCabinet .= "  📊 Общий трафик: " . formatBytes($trafficInfo['total_traffic']);
+				}
 				
 				// Добавляем сообщение о блокировке, если tarif = 'block'
 				if ($tarif === 'block') {
-					$textCabinet .= "\n🚫 Доступ закрыт: Ваш тариф заблокирован. Пожалуйста, оплатите подписку для восстановления доступа.";
+					$textCabinet .= "\n\n🚫 Доступ закрыт: Ваш тариф заблокирован. Пожалуйста, оплатите подписку для восстановления доступа.";
 				}
 			} else {
 				$textCabinet = "👤 Личный кабинет:\nВы ещё не получили ключ!";
