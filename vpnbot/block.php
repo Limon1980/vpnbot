@@ -2,7 +2,7 @@
 include('db.php');
 $dbh = new Db();
 
-$token = '7633588710:AAH4vYAT4fSfew_tuElIyzSBNKGJujkRL9M';
+$token = 'you_token';
 function sendTm($token, $method, $request_params)
 {
     // Формирование URL-адреса запроса
