@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 ini_set('display_errors', true);
 ini_set('display_startup_errors', true);
 ini_set('error_reporting', -1);
@@ -58,6 +58,10 @@ class Db {
 	}
 
 	private function reconnect() {
+        $username = USERNAME;
+        $password = PASSWORD;
+        $host = HOST;
+        $db = DB;
         $this->dbh = new PDO("mysql:dbname=$db;host=$host;charset=utf8mb4", $username, $password); // Повторная инициализация
     }
 		
