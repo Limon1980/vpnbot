@@ -103,13 +103,16 @@ class TrafficCollector {
                     if (preg_match('/VpnOpenBot_(\d+)/', $commonName, $matches)) {
                         $chatId = $matches[1];
                         
+                        // Преобразуем время из формата OpenVPN в формат MySQL
+                        $mysqlDateTime = $this->convertOpenVpnTimeToMysql($connectedSince);
+                        
                         $clients[$chatId] = [
                             'chat_id' => $chatId,
                             'common_name' => $commonName,
                             'real_address' => $realAddress,
                             'bytes_received' => $bytesReceived,
                             'bytes_sent' => $bytesSent,
-                            'connected_since' => $connectedSince
+                            'connected_since' => $mysqlDateTime
                         ];
                     }
                 }
@@ -142,18 +145,65 @@ class TrafficCollector {
      */
     private function updateActiveTraffic($clientsData, $currentTraffic) {
         foreach ($clientsData as $chatId => $clientData) {
-            // Обновляем текущий трафик сессии
-            $sql = "UPDATE vpnusers 
-                    SET recive_byte = :recive_byte,
-                        sent_byte = :sent_byte,
-                        session_start = COALESCE(session_start, NOW())
-                    WHERE chat_id = :chat_id";
+            // Проверяем, есть ли уже активная сессия в БД
+            $isNewSession = !isset($currentTraffic[$chatId]) || 
+                           empty($currentTraffic[$chatId]['session_start']) ||
+                           ($currentTraffic[$chatId]['recive_byte'] == 0 && $currentTraffic[$chatId]['sent_byte'] == 0) ||
+                           // Также проверяем, если время подключения в логе OpenVPN новее, чем в БД (переподключение)
+                           (!empty($currentTraffic[$chatId]['session_start']) && 
+                            strtotime($clientData['connected_since']) > strtotime($currentTraffic[$chatId]['session_start']));
             
-            $params = [
-                ':recive_byte' => $clientData['bytes_received'],
-                ':sent_byte' => $clientData['bytes_sent'],
-                ':chat_id' => $chatId
-            ];
+            if ($isNewSession) {
+                // Новая сессия - устанавливаем время из лога OpenVPN
+                $sql = "UPDATE vpnusers 
+                        SET recive_byte = :recive_byte,
+                            sent_byte = :sent_byte,
+                            session_start = :session_start
+                        WHERE chat_id = :chat_id";
+                
+                $params = [
+                    ':recive_byte' => $clientData['bytes_received'],
+                    ':sent_byte' => $clientData['bytes_sent'],
+                    ':session_start' => $clientData['connected_since'],
+                    ':chat_id' => $chatId
+                ];
+                
+                                 // Проверяем, это совсем новая сессия или переподключение
+                 $isReconnection = isset($currentTraffic[$chatId]) && 
+                                 !empty($currentTraffic[$chatId]['session_start']) &&
+                                 strtotime($clientData['connected_since']) > strtotime($currentTraffic[$chatId]['session_start']);
+                 
+                 if ($isReconnection) {
+                     // При переподключении сначала сохраняем трафик предыдущей сессии
+                     $this->log("Переподключение для chat_id: $chatId. Старая сессия: " . $currentTraffic[$chatId]['session_start'] . ", новая: " . $clientData['connected_since']);
+                     
+                     // Добавляем трафик предыдущей сессии к общему счетчику
+                     $addTrafficSql = "UPDATE vpnusers 
+                                      SET full_recive_byte = full_recive_byte + :old_recive,
+                                          full_sent_byte = full_sent_byte + :old_sent
+                                      WHERE chat_id = :chat_id";
+                     
+                     $this->dbh->query($addTrafficSql, [
+                         ':old_recive' => $currentTraffic[$chatId]['recive_byte'],
+                         ':old_sent' => $currentTraffic[$chatId]['sent_byte'],
+                         ':chat_id' => $chatId
+                     ]);
+                 } else {
+                     $this->log("Новая сессия для chat_id: $chatId, начало: " . $clientData['connected_since']);
+                 }
+            } else {
+                // Продолжающаяся сессия - обновляем только трафик
+                $sql = "UPDATE vpnusers 
+                        SET recive_byte = :recive_byte,
+                            sent_byte = :sent_byte
+                        WHERE chat_id = :chat_id";
+                
+                $params = [
+                    ':recive_byte' => $clientData['bytes_received'],
+                    ':sent_byte' => $clientData['bytes_sent'],
+                    ':chat_id' => $chatId
+                ];
+            }
             
             $this->dbh->query($sql, $params);
         }
@@ -182,6 +232,27 @@ class TrafficCollector {
                 
                 $this->log("Сессия завершена для chat_id: $chatId, трафик перенесен в полные счетчики");
             }
+        }
+    }
+    
+    /**
+     * Преобразует время из формата OpenVPN в формат MySQL
+     */
+    private function convertOpenVpnTimeToMysql($openVpnTime) {
+        // OpenVPN формат: 2025-07-26 14:31:33
+        // MySQL формат: 2025-07-26 14:31:33 (тот же, но проверим)
+        
+        try {
+            $dateTime = DateTime::createFromFormat('Y-m-d H:i:s', $openVpnTime);
+            if ($dateTime === false) {
+                // Пробуем другой формат, если первый не сработал
+                $dateTime = new DateTime($openVpnTime);
+            }
+            return $dateTime->format('Y-m-d H:i:s');
+        } catch (Exception $e) {
+            $this->log("Ошибка преобразования времени '$openVpnTime': " . $e->getMessage());
+            // Возвращаем текущее время как fallback
+            return date('Y-m-d H:i:s');
         }
     }
     

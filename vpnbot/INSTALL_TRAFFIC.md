@@ -38,6 +38,12 @@ sudo chmod 640 /var/log/openvpn/status.log
 ### 4. Проверка работы
 
 ```bash
+# Тестирование исправлений
+php /var/www/html/vpnbot/test_fixes.php
+
+# Исправление времен сессий (если нужно)
+php /var/www/html/vpnbot/fix_session_times.php
+
 # Запуск сбора трафика вручную
 php /var/www/html/vpnbot/traffic_collector.php
 
@@ -60,6 +66,8 @@ tail -f /var/log/vpnbot_traffic.log
 - `traffic_collector.php` - основной скрипт сбора (запускается по cron)
 - `traffic_stats.php` - веб-интерфейс для мониторинга
 - `test_traffic.php` - скрипт тестирования системы
+- `test_fixes.php` - тестирование исправлений
+- `fix_session_times.php` - исправление времен сессий
 - `fun.lib.php` - дополнительные функции (обновлен)
 - `bot.php` - основной бот (обновлен для отображения трафика)
 

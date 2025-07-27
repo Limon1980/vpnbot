@@ -78,9 +78,9 @@ class TrafficStats {
                 FROM vpnusers 
                 WHERE key_name IS NOT NULL AND key_name != ''
                 ORDER BY total_traffic DESC 
-                LIMIT :limit";
+                LIMIT " . (int)$limit;
         
-        return $this->dbh->query($sql, [':limit' => $limit]);
+        return $this->dbh->query($sql);
     }
     
     /**
